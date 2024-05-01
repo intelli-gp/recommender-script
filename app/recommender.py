@@ -16,12 +16,26 @@ load_dotenv()
 @lru_cache(maxsize=None)
 def fetchData():
     #  Connect to database
+
+    DATABASE_HOST = os.getenv("DATABASE_HOST")
+    DATABASE_PORT = os.getenv("DATABASE_PORT")
+    DATABASE_NAME = os.getenv("DATABASE_NAME")
+    DATABASE_USER_NAME = os.getenv("DATABASE_USER_NAME")
+    DATABASE_USER_PASSWORD = os.getenv("DATABASE_USER_PASSWORD")
+
     try:
-        DATABASE_URL = os.getenv("DATABASE_URL")
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg2.connect(
+            database=DATABASE_NAME,
+            user=DATABASE_USER_NAME,
+            password=DATABASE_USER_PASSWORD,
+            host=DATABASE_HOST,
+            port=DATABASE_PORT,
+        )
         print("Connected to PostgreSQL database!")
+
     except (Exception, psycopg2.Error) as error:
         print("Error while connecting to PostgreSQL", error)
+
     cursor = conn.cursor()
 
     # Fetch Article, article-content, article-tag Table and convert them to a dataframe
@@ -37,7 +51,6 @@ def fetchData():
 
     cursor.close()
     conn.close()
-
     return df_articles, df_article_tag
 
 
@@ -60,7 +73,6 @@ def vectorize_data(df):
     corpus = corpus.replace(np.nan, "")
     vectorizer = TfidfVectorizer()
     corpus_vectorized = vectorizer.fit_transform(corpus)
-
     return corpus_vectorized
 
 
@@ -81,7 +93,6 @@ def get_article_recommendations(corpus_vectorized, article_id):
     scores = user_vector.dot(corpus_vectorized.transpose())
     scores_array = scores.toarray()[0]
     sorted_indices = scores_array.argsort()[::-1]
-
     return [[int(idx), round(scores_array[idx], 4)] for idx in sorted_indices]
 
 
