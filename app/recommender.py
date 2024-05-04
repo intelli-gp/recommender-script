@@ -13,43 +13,48 @@ import os
 load_dotenv()
 
 
-@lru_cache(maxsize=None)
-def connect_to_db():
-    DATABASE_HOST = os.getenv("DATABASE_HOST")
-    DATABASE_PORT = os.getenv("DATABASE_PORT")
-    DATABASE_NAME = os.getenv("DATABASE_NAME")
-    DATABASE_USER_NAME = os.getenv("DATABASE_USER_NAME")
-    DATABASE_USER_PASSWORD = os.getenv("DATABASE_USER_PASSWORD")
+class Database:
+    def __init__(self):
+        DATABASE_HOST = os.getenv("DATABASE_HOST")
+        DATABASE_PORT = os.getenv("DATABASE_PORT")
+        DATABASE_NAME = os.getenv("DATABASE_NAME")
+        DATABASE_USER_NAME = os.getenv("DATABASE_USER_NAME")
+        DATABASE_USER_PASSWORD = os.getenv("DATABASE_USER_PASSWORD")
 
-    try:
-        conn = psycopg2.connect(
+        self.conn = psycopg2.connect(
             database=DATABASE_NAME,
             user=DATABASE_USER_NAME,
             password=DATABASE_USER_PASSWORD,
             host=DATABASE_HOST,
             port=DATABASE_PORT,
         )
-        print("Connected to PostgreSQL database!")
 
-    except (Exception, psycopg2.Error) as error:
-        print("Error while connecting to PostgreSQL", error)
+    def __enter__(self):
+        return self.conn.cursor()
 
-    return conn
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.conn.commit()
+        self.conn.close()
 
 
-def fetchData(type="article" or "group" or "user", conn=connect_to_db()):
-    cursor = conn.cursor()
+# Dependency to inject the database connection into request handlers
+def query_database(query):
+    with Database() as db:
+        db.execute(query)
+        rows = db.fetchall()
+        return rows, db.description
+
+
+@lru_cache(maxsize=None)
+def fetchData(type="article" or "group" or "user"):
     # Fetch Article, article-content, article-tag Table and convert them to a dataframe
-    cursor.execute(f'SELECT * FROM "{type}"')
-    rows = cursor.fetchall()
-    df_data = pd.DataFrame(rows, columns=[col.name for col in cursor.description])
+    query = f'SELECT * FROM "{type}"'
+    rows, description = query_database(query)
+    df_data = pd.DataFrame(rows, columns=[col.name for col in description])
 
-    cursor.execute(f"SELECT * FROM {type}_tag")
-    rows = cursor.fetchall()
-    df_tag = pd.DataFrame(rows, columns=[col.name for col in cursor.description])
-
-    cursor.close()
-    conn.close()
+    query = f"SELECT * FROM {type}_tag"
+    rows, description = query_database(query)
+    df_tag = pd.DataFrame(rows, columns=[col.name for col in description])
     return df_data, df_tag
 
 
