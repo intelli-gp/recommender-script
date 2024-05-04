@@ -14,9 +14,7 @@ load_dotenv()
 
 
 @lru_cache(maxsize=None)
-def fetchData():
-    #  Connect to database
-
+def connect_to_db():
     DATABASE_HOST = os.getenv("DATABASE_HOST")
     DATABASE_PORT = os.getenv("DATABASE_PORT")
     DATABASE_NAME = os.getenv("DATABASE_NAME")
@@ -36,32 +34,33 @@ def fetchData():
     except (Exception, psycopg2.Error) as error:
         print("Error while connecting to PostgreSQL", error)
 
+    return conn
+
+
+def fetchData(type="article" or "group" or "user", conn=connect_to_db()):
     cursor = conn.cursor()
-
     # Fetch Article, article-content, article-tag Table and convert them to a dataframe
-    cursor.execute("SELECT * FROM article")
+    cursor.execute(f'SELECT * FROM "{type}"')
     rows = cursor.fetchall()
-    df_articles = pd.DataFrame(rows, columns=[col.name for col in cursor.description])
+    df_data = pd.DataFrame(rows, columns=[col.name for col in cursor.description])
 
-    cursor.execute("SELECT * FROM article_tag")
+    cursor.execute(f"SELECT * FROM {type}_tag")
     rows = cursor.fetchall()
-    df_article_tag = pd.DataFrame(
-        rows, columns=[col.name for col in cursor.description]
-    )
+    df_tag = pd.DataFrame(rows, columns=[col.name for col in cursor.description])
 
     cursor.close()
     conn.close()
-    return df_articles, df_article_tag
+    return df_data, df_tag
 
 
-def organize_data_in_df(df_articles, df_article_tag):
-    df_article_tag_merged = df_article_tag.groupby("article_id")["tag_name"].agg(list)
-    df_article_tag_merged = df_article_tag_merged.to_frame("tags").reset_index()
-    df_article_tag_merged["tags"] = [str(x) for x in df_article_tag_merged["tags"]]
+def organize_data(df, df_tag, type="article" or "group" or "user"):
+    df_tag_merged = df_tag.groupby(f"{type}_id")["tag_name"].agg(list)
+    df_tag_merged = df_tag_merged.to_frame("tags").reset_index()
+    df_tag_merged["tags"] = [str(x) for x in df_tag_merged["tags"]]
     df = pd.merge(
-        df_articles,
-        df_article_tag_merged[["article_id", "tags"]],
-        on="article_id",
+        df,
+        df_tag_merged[[f"{type}_id", "tags"]],
+        on=f"{type}_id",
         how="left",
     )
     return df
@@ -76,16 +75,16 @@ def vectorize_data(df):
     return corpus_vectorized
 
 
-def get_article_recommendations(corpus_vectorized, article_id):
+def get_recommendations(corpus_vectorized, data_id):
 
     # compute user vector as the average of the vectors of the read articles
-    read_articles_rows = []
+    read_data_rows = []
 
     # for idx in read_articles_indices:
-    article_row = corpus_vectorized.getrow(article_id).toarray()[0]
-    read_articles_rows.append(article_row)
-    read_articles_rows = np.array(read_articles_rows)
-    user_vector_dense = np.average(read_articles_rows, axis=0).reshape((1, -1))
+    data_row = corpus_vectorized.getrow(data_id).toarray()[0]
+    read_data_rows.append(data_row)
+    read_data_rows = np.array(read_data_rows)
+    user_vector_dense = np.average(read_data_rows, axis=0).reshape((1, -1))
     user_vector = sparse.csr_matrix(user_vector_dense)
 
     # compute scores as the dot product between the query vector
@@ -96,20 +95,14 @@ def get_article_recommendations(corpus_vectorized, article_id):
     return [[int(idx), round(scores_array[idx], 4)] for idx in sorted_indices]
 
 
-def start_up():
-    df_articles, df_article_tag = fetchData()
-    df = organize_data_in_df(df_articles, df_article_tag)
+def start_up(type="article" or "group" or "user"):
+    df_data, df_tags = fetchData(type)
+    df = organize_data(df_data, df_tags, type)
     vectorized_corpus = vectorize_data(df)
     return vectorized_corpus
 
 
-def main_article(article_id):
-    vectorized_corpus = start_up()
-    article_scores = get_article_recommendations(vectorized_corpus, article_id)
+def main(data_id, type="article" or "group" or "user"):
+    vectorized_corpus = start_up(type)
+    article_scores = get_recommendations(vectorized_corpus, data_id)
     return article_scores
-
-
-# def main_general():
-#     vectorized_corpus = start_up()
-#     article_scores = get_article_recommendations(vectorized_corpus, 1944)
-#     return article_scores
