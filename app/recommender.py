@@ -70,12 +70,12 @@ def vectorize_data(df):
 
 
 def get_recommendations(corpus_vectorized, data_id):
-    read_data_rows = []
+    data_rows = []
 
     data_row = corpus_vectorized.getrow(data_id).toarray()[0]
-    read_data_rows.append(data_row)
-    read_data_rows = np.array(read_data_rows)
-    user_vector_dense = np.average(read_data_rows, axis=0).reshape((1, -1))
+    data_rows.append(data_row)
+    data_rows = np.array(data_rows)
+    user_vector_dense = np.average(data_rows, axis=0).reshape((1, -1))
     user_vector = sparse.csr_matrix(user_vector_dense)
 
     # compute scores as the dot product between the query vector
@@ -95,5 +95,5 @@ def start_up(type="article" or "group" or "user"):
 
 def main(data_id, type="article" or "group" or "user"):
     vectorized_corpus = start_up(type)
-    article_scores = get_recommendations(vectorized_corpus, data_id)
-    return article_scores
+    scores = get_recommendations(vectorized_corpus, data_id)
+    return scores
