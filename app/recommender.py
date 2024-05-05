@@ -46,10 +46,25 @@ def query_database(query):
 
 
 @lru_cache(maxsize=None)
-def fetchData(type="article" or "group" or "user"):
+def fetchDataSpecific(type="article" or "group" or "user"):
     query = f"SELECT * FROM {type}_tag"
     rows, description = query_database(query)
     df_tag = pd.DataFrame(rows, columns=[col.name for col in description])
+    return df_tag
+
+
+@lru_cache(maxsize=None)
+def fetchDataGeneral(type="article" or "group" or "user", id=int):
+    query = f"SELECT * FROM {type}_tag"
+    rows, description = query_database(query)
+    df_tag = pd.DataFrame(rows, columns=[col.name for col in description])
+
+    query = f'SELECT * FROM "user_tag" where user_id = {id} OR user_id = 977 OR user_id = 650'
+    rows, description = query_database(query)
+    user_tags = pd.DataFrame(rows, columns=[col.name for col in description])
+    user_tags[f"{type}_id"] = -1
+    df_tag = pd.concat([df_tag, user_tags[[f"{type}_id", "tag_name"]]], ignore_index=True)
+    print(df_tag.tail(30))
     return df_tag
 
 
@@ -83,17 +98,22 @@ def get_recommendations(corpus_vectorized, data_id):
     scores = user_vector.dot(corpus_vectorized.transpose())
     scores_array = scores.toarray()[0]
     sorted_indices = scores_array.argsort()[::-1]
-    return [[int(idx), round(scores_array[idx], 4)] for idx in sorted_indices]
+    return [[int(idx + 1), round(scores_array[idx], 4)] for idx in sorted_indices]
 
 
-def start_up(type="article" or "group" or "user"):
-    df_tags = fetchData(type)
-    df = organize_data(df_tags, type)
+def start_up(type="article" or "group" or "user", general=False, id=int):
+    if general:
+        df_tag = fetchDataGeneral(type, id)
+    else:
+        df_tag = fetchDataSpecific(type)
+    df = organize_data(df_tag, type)
     vectorized_corpus = vectorize_data(df)
     return vectorized_corpus
 
 
-def main(data_id, type="article" or "group" or "user"):
-    vectorized_corpus = start_up(type)
+def main(data_id, type="article" or "group" or "user", general=False):
+    vectorized_corpus = start_up(type, general, data_id)
+    if general:
+        data_id = 0
     scores = get_recommendations(vectorized_corpus, data_id)
     return scores
