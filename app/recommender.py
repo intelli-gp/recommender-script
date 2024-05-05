@@ -47,28 +47,17 @@ def query_database(query):
 
 @lru_cache(maxsize=None)
 def fetchData(type="article" or "group" or "user"):
-    # Fetch Article, article-content, article-tag Table and convert them to a dataframe
-    query = f'SELECT * FROM "{type}"'
-    rows, description = query_database(query)
-    df_data = pd.DataFrame(rows, columns=[col.name for col in description])
-
     query = f"SELECT * FROM {type}_tag"
     rows, description = query_database(query)
     df_tag = pd.DataFrame(rows, columns=[col.name for col in description])
-    return df_data, df_tag
+    return df_tag
 
 
-def organize_data(df, df_tag, type="article" or "group" or "user"):
+def organize_data(df_tag, type="article" or "group" or "user"):
     df_tag_merged = df_tag.groupby(f"{type}_id")["tag_name"].agg(list)
     df_tag_merged = df_tag_merged.to_frame("tags").reset_index()
     df_tag_merged["tags"] = [str(x) for x in df_tag_merged["tags"]]
-    df = pd.merge(
-        df,
-        df_tag_merged[[f"{type}_id", "tags"]],
-        on=f"{type}_id",
-        how="left",
-    )
-    return df
+    return df_tag_merged
 
 
 def vectorize_data(df):
@@ -81,11 +70,8 @@ def vectorize_data(df):
 
 
 def get_recommendations(corpus_vectorized, data_id):
-
-    # compute user vector as the average of the vectors of the read articles
     read_data_rows = []
 
-    # for idx in read_articles_indices:
     data_row = corpus_vectorized.getrow(data_id).toarray()[0]
     read_data_rows.append(data_row)
     read_data_rows = np.array(read_data_rows)
@@ -101,8 +87,8 @@ def get_recommendations(corpus_vectorized, data_id):
 
 
 def start_up(type="article" or "group" or "user"):
-    df_data, df_tags = fetchData(type)
-    df = organize_data(df_data, df_tags, type)
+    df_tags = fetchData(type)
+    df = organize_data(df_tags, type)
     vectorized_corpus = vectorize_data(df)
     return vectorized_corpus
 
