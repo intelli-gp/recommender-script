@@ -59,12 +59,14 @@ def fetchDataGeneral(type="article" or "group" or "user", id=int):
     rows, description = query_database(query)
     df_tag = pd.DataFrame(rows, columns=[col.name for col in description])
 
-    query = f'SELECT * FROM "user_tag" where user_id = {id} OR user_id = 977 OR user_id = 650'
+    # TODO: Get user system tags instead of regular tags
+    query = f'SELECT * FROM "user_tag" where user_id = {id}'
     rows, description = query_database(query)
     user_tags = pd.DataFrame(rows, columns=[col.name for col in description])
     user_tags[f"{type}_id"] = -1
-    df_tag = pd.concat([df_tag, user_tags[[f"{type}_id", "tag_name"]]], ignore_index=True)
-    print(df_tag.tail(30))
+    df_tag = pd.concat(
+        [df_tag, user_tags[[f"{type}_id", "tag_name"]]], ignore_index=True
+    )
     return df_tag
 
 
@@ -98,7 +100,7 @@ def get_recommendations(corpus_vectorized, data_id):
     scores = user_vector.dot(corpus_vectorized.transpose())
     scores_array = scores.toarray()[0]
     sorted_indices = scores_array.argsort()[::-1]
-    return [[int(idx + 1), round(scores_array[idx], 4)] for idx in sorted_indices]
+    return [[int(idx), round(scores_array[idx], 4)] for idx in sorted_indices]
 
 
 def start_up(type="article" or "group" or "user", general=False, id=int):
