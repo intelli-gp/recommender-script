@@ -59,11 +59,20 @@ def fetchDataGeneral(type="article" or "group" or "user", id=int):
     rows, description = query_database(query)
     df_tag = pd.DataFrame(rows, columns=[col.name for col in description])
 
-    # TODO: Get user system tags instead of regular tags
+    query = f'SELECT * FROM "user_system_tag" where user_id = {id}'
+    rows, description = query_database(query)
+    user_system_tags = pd.DataFrame(rows, columns=[col.name for col in description])
+    user_system_tags[f"{type}_id"] = -1
+
     query = f'SELECT * FROM "user_tag" where user_id = {id}'
     rows, description = query_database(query)
     user_tags = pd.DataFrame(rows, columns=[col.name for col in description])
     user_tags[f"{type}_id"] = -1
+
+    user_tags = pd.concat([user_tags, user_system_tags], ignore_index=True)
+
+    print(user_tags.head(15))
+
     df_tag = pd.concat(
         [df_tag, user_tags[[f"{type}_id", "tag_name"]]], ignore_index=True
     )
