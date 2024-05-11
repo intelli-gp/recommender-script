@@ -71,8 +71,6 @@ def fetchDataGeneral(type="article" or "group" or "user", id=int):
 
     user_tags = pd.concat([user_tags, user_system_tags], ignore_index=True)
 
-    print(user_tags.head(15))
-
     df_tag = pd.concat(
         [df_tag, user_tags[[f"{type}_id", "tag_name"]]], ignore_index=True
     )
@@ -138,6 +136,5 @@ def main(data_id, type="article" or "group" or "user", general=False):
         data_id = 0
     else:
         data_id -= 1
-    print(general)
     scores = get_recommendations(vectorized_corpus, data_id, general)
     return scores
