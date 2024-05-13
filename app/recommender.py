@@ -92,7 +92,9 @@ def vectorize_data(df):
     return corpus_vectorized
 
 
-def get_recommendations(corpus_vectorized, data_id, df, general=False):
+def get_recommendations(
+    corpus_vectorized, data_id, df, type="article" or "group" or "user"
+):
     data_rows = []
     data_row = corpus_vectorized.getrow(data_id).toarray()[0]
     data_rows.append(data_row)
@@ -106,7 +108,7 @@ def get_recommendations(corpus_vectorized, data_id, df, general=False):
     scores_array = scores.toarray()[0]
     sorted_indices = scores_array.argsort()[::-1]
     return [
-        [int(df.loc[idx, "article_id"]), round(scores_array[idx], 4)]
+        [int(df.loc[idx, f"{type}_id"]), round(scores_array[idx], 4)]
         for idx in sorted_indices
         if idx != data_id
     ]
@@ -128,5 +130,5 @@ def main(data_id, type="article" or "group" or "user", general=False):
         data_id = 0
     else:
         data_id = df[df[f"{type}_id"] == data_id].index[0]
-    scores = get_recommendations(vectorized_corpus, data_id, df, general)
+    scores = get_recommendations(vectorized_corpus, data_id, df, type)
     return scores
