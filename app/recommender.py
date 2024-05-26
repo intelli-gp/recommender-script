@@ -10,11 +10,9 @@ import psycopg2
 import os
 
 
-load_dotenv()
-
-
 class Database:
     def __init__(self):
+        load_dotenv()
         DATABASE_HOST = os.getenv("DATABASE_HOST")
         DATABASE_PORT = os.getenv("DATABASE_PORT")
         DATABASE_NAME = os.getenv("DATABASE_NAME")
@@ -69,12 +67,33 @@ def fetchDataGeneral(type="article" or "group" or "user", id=int):
     user_tags = pd.DataFrame(rows, columns=[col.name for col in description])
     user_tags[f"{type}_id"] = -1
 
+    if user_tags.empty:
+        return fetchPopularData(type), True
+
     user_tags = pd.concat([user_tags, user_system_tags], ignore_index=True)
 
     df_tag = pd.concat(
         [df_tag, user_tags[[f"{type}_id", "tag_name"]]], ignore_index=True
     )
+
     return df_tag
+
+
+def fetchPopularData(type="article" or "group" or "user"):
+    if type == "user":
+        query = 'SELECT "user_id" AS "id", "followers_count" AS "count" FROM "user" order by "count" desc'
+    elif type == "article":
+        query = 'SELECT "article_id" AS "id", "likes_count" AS "count" FROM "article" order by "count" desc'
+    elif type == "group":
+        query = 'SELECT "group_id" AS "id", "users_count" AS "count" FROM "group" order by "count" desc'
+
+    rows, description = query_database(query)
+    df = pd.DataFrame(rows, columns=[col.name for col in description])
+    maxCount = max(df["count"].max(), 1)
+    df["count"] = df["count"].apply(lambda x: round(x / maxCount, 4))
+
+    df.rename(columns={"count": "scores"}, inplace=True)
+    return df.values
 
 
 def organize_data(df_tag, type="article" or "group" or "user"):
@@ -116,19 +135,23 @@ def get_recommendations(
 
 def start_up(type="article" or "group" or "user", general=False, id=int):
     if general:
-        df_tag = fetchDataGeneral(type, id)
+        df_data, popular = fetchDataGeneral(type, id)
+        if popular:
+            return df_data, True
     else:
-        df_tag = fetchDataSpecific(type)
-    df = organize_data(df_tag, type)
+        df_data = fetchDataSpecific(type)
+    df = organize_data(df_data, type)
     vectorized_corpus = vectorize_data(df)
     return vectorized_corpus, df
 
 
 def main(data_id, type="article" or "group" or "user", general=False):
-    vectorized_corpus, df = start_up(type, general, data_id)
+    corpus_or_scores, df = start_up(type, general, data_id)
+    if df == True:
+        return corpus_or_scores
     if general:
         data_id = 0
     else:
         data_id = df[df[f"{type}_id"] == data_id].index[0]
-    scores = get_recommendations(vectorized_corpus, data_id, df, type)
+    scores = get_recommendations(corpus_or_scores, data_id, df, type)
     return scores
