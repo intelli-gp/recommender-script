@@ -147,7 +147,7 @@ def start_up(type="article" or "group" or "user", general=False, id=int):
 
 def main(data_id, type="article" or "group" or "user", general=False):
     corpus_or_scores, df = start_up(type, general, data_id)
-    if df == True:
+    if isinstance(df, bool) and df == True:
         return corpus_or_scores
     if general:
         data_id = 0
