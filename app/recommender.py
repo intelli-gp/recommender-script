@@ -45,7 +45,7 @@ def query_database(query):
         return rows, db.description
 
 
-@lru_cache(maxsize=None)
+# @lru_cache(maxsize=None)
 def fetchDataSpecific(type="article" or "group" or "user"):
     query = f"SELECT * FROM {type}_tag"
     rows, description = query_database(query)
@@ -53,7 +53,7 @@ def fetchDataSpecific(type="article" or "group" or "user"):
     return df_tag
 
 
-@lru_cache(maxsize=None)
+# @lru_cache(maxsize=None)
 def fetchDataGeneral(type="article" or "group" or "user", id=int):
     query = f"SELECT * FROM {type}_tag"
     rows, description = query_database(query)
